@@ -1,0 +1,23 @@
+{
+  "name": "opencode-subagent-policy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Keep OpenCode sub-agents off expensive Console models.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["index.ts", "src"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.2.5"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "typescript": "5.9.3"
+  }
+}
