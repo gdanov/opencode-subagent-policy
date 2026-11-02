@@ -1,13 +1,50 @@
 import { describe, expect, test } from 'bun:test'
 
-import { blocksModel, enabledModels, isSubagentAgent, subagentIDs } from '../src/policy'
+import { enabledModels, isAllowedModel, isSubagentAgent, modelName, subagentIDs } from '../src/policy'
 
-describe('blocksModel', () => {
-  test('blocks console-anthropic only', () => {
-    expect(blocksModel('console-anthropic')).toBe(true)
-    expect(blocksModel('opencode')).toBe(false)
-    expect(blocksModel('opencode-go')).toBe(false)
-    expect(blocksModel('openrouter')).toBe(false)
+describe('modelName', () => {
+  test('drops the provider prefix and the variant suffix', () => {
+    expect(modelName({ providerID: 'opencode-go', id: 'deepseek-v4.1-flash' })).toBe('deepseek-v4.1-flash')
+    expect(modelName({ providerID: 'opencode', id: 'opencode/glm-5.3-flash' })).toBe('glm-5.3-flash')
+    expect(modelName({ providerID: 'opencode-go', id: 'deepseek-v4.1-flash#high' })).toBe('deepseek-v4.1-flash')
+  })
+})
+
+describe('enabledModels', () => {
+  const catalogue = [
+    { providerID: 'opencode', id: 'glm-5.3-flash' },
+    { providerID: 'opencode', id: 'beam-free' },
+    { providerID: 'opencode', id: 'beam-free' },
+    { providerID: 'console-anthropic', id: 'claude-opus-5-5' },
+    { providerID: 'opencode-go', id: 'gpt-6-luna' },
+    { providerID: 'openrouter', id: 'anthropic/claude-sonnet-5.5' },
+  ]
+
+  test('lists bare catalog names, deduplicated and sorted', () => {
+    expect(enabledModels(catalogue)).toEqual(['beam-free', 'glm-5.3-flash'])
+  })
+})
+
+describe('isAllowedModel', () => {
+  const allowed = ['beam-free', 'deepseek-v4.1-flash']
+
+  test('matches a name regardless of the provider that serves it', () => {
+    expect(isAllowedModel({ providerID: 'opencode-go', id: 'deepseek-v4.1-flash' }, allowed)).toBe(true)
+    expect(isAllowedModel({ providerID: 'opencode', id: 'beam-free' }, allowed)).toBe(true)
+  })
+
+  test('rejects a name that is not on the list', () => {
+    expect(isAllowedModel({ providerID: 'opencode-go', id: 'deepseek-v4-pro' }, allowed)).toBe(false)
+    expect(isAllowedModel({ providerID: 'console-anthropic', id: 'claude-opus-5-5' }, allowed)).toBe(false)
+    expect(isAllowedModel({ providerID: 'openrouter', id: 'anthropic/claude-sonnet-5.5' }, allowed)).toBe(false)
+  })
+
+  test('treats catalogue names literally, not as patterns', () => {
+    expect(isAllowedModel({ providerID: 'opencode', id: 'deepseek-v4x1-flash' }, allowed)).toBe(false)
+  })
+
+  test('an empty catalogue allows nothing', () => {
+    expect(isAllowedModel({ providerID: 'opencode', id: 'beam-free' }, [])).toBe(false)
   })
 })
 
@@ -26,19 +63,5 @@ describe('isSubagentAgent', () => {
       { id: 'reviewer', mode: 'all' },
     ]
     expect(subagentIDs(agents)).toEqual(['general', 'reviewer'])
-  })
-})
-
-describe('enabledModels', () => {
-  const catalog = [
-    { providerID: 'opencode', id: 'glm-5.3-flash' },
-    { providerID: 'opencode', id: 'beam-free' },
-    { providerID: 'console-anthropic', id: 'claude-opus-5-5' },
-    { providerID: 'opencode-go', id: 'gpt-6-luna' },
-    { providerID: 'openrouter', id: 'anthropic/claude-sonnet-5.5' },
-  ]
-
-  test('lists the console catalogue without opencode-go, console-anthropic or third-party providers', () => {
-    expect(enabledModels(catalog)).toEqual(['opencode/beam-free', 'opencode/glm-5.3-flash'])
   })
 })

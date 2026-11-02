@@ -1,28 +1,30 @@
 # opencode-subagent-policy
 
-An OpenCode V2 plugin that keeps sub-agents off expensive Console models. A session whose agent is a subagent may not dispatch a model request through a blocked provider; the main session is unaffected.
+An OpenCode V2 plugin that keeps sub-agents on the Console's enabled models. A session whose agent is a subagent may only dispatch a model whose name is on that list; the main session is unaffected.
 
 ## The rule
 
 | | |
 | --- | --- |
-| Blocked for subagents | `console-anthropic` |
-| Everything else | unchanged |
+| Allowed for subagents | a model name in the enabled Console catalogue |
+| Rejected | everything else |
+
+The catalogue is the local model list restricted to the `opencode` provider, reduced to bare names: the provider prefix is stripped, so the same model is permitted whichever provider serves it (`opencode-go/deepseek-v4.1-flash` passes because `deepseek-v4.1-flash` is enabled). A variant suffix (`#high`) is stripped. Names are compared as a regex alternation, anchored at both ends, with regex metacharacters escaped, so a catalogue name is matched literally.
 
 Subagent identity is read from the agent registry: `mode: "subagent"` or `mode: "all"`. The registry is refreshed on the `agent.updated` event and once a minute.
 
-The check runs on the `session.hook("context")` seam, immediately before dispatch, so it costs nothing when the model is allowed and no request reaches the provider when it is not.
+The check runs on the `session.hook("context")` seam, immediately before dispatch, so no request reaches the provider when the model is not on the list.
 
 ## Rejection
 
-The error names the offending model and lists the models the Console still offers, so the caller can retry on one that is permitted:
+The error names the offending model and lists the enabled names, so the caller can retry on one that is permitted:
 
 ```text
-Sub-agents may not use console-anthropic models (got console-anthropic/claude-haiku-5-5).
-Enabled Console models: opencode/beam-free, opencode/big-pickle, opencode/deepseek-v4.1-flash, …
+Sub-agents may only run an enabled model (got opencode-go/deepseek-v4-pro).
+Enabled Console models: beam-free, big-pickle, deepseek-v4.1-flash, …
 ```
 
-The list is the local catalog restricted to the `opencode` provider. `opencode-go` is deliberately ignored: the Console serves no model enablement for that provider, so it is not part of the Console catalogue this plugin reports.
+An empty catalogue allows nothing, and the message reads `Enabled Console models: none.`
 
 ## Install
 

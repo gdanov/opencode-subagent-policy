@@ -1,6 +1,6 @@
 import { Plugin } from '@opencode/plugin'
 
-import { blocksModel, enabledModels, subagentIDs, type ModelRef } from './policy'
+import { enabledModels, isAllowedModel, subagentIDs, type ModelRef } from './policy'
 
 const agentRefreshInterval = 60_000
 
@@ -17,11 +17,12 @@ export default Plugin.define({
 
     const registration = await ctx.session.hook('context', async (event) => {
       if (!subagents.has(event.agent)) return
-      if (!blocksModel(event.model.providerID)) return
 
       const allowed = enabledModels((await ctx.model.list()).data as readonly ModelRef[])
+      if (isAllowedModel(event.model, allowed)) return
+
       throw new Error(
-        `Sub-agents may not use ${event.model.providerID} models (got ${event.model.providerID}/${event.model.id}). ` +
+        `Sub-agents may only run an enabled model (got ${event.model.providerID}/${event.model.id}). ` +
           `Enabled Console models: ${allowed.length > 0 ? allowed.join(', ') : 'none'}.`,
       )
     })
